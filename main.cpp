@@ -15,7 +15,7 @@ constexpr uint8_t RELAY_ACTIVE_STATE{ HIGH };
 constexpr uint8_t RELAY_INACTIVE_STATE{ LOW };
 
 // How often to read temperature (ms)
-constexpr unsigned long READ_INTERVAL_MS{ 2000UL };  // 2 seconds
+constexpr unsigned long READ_INTERVAL_MS{ 3000UL };  // 2 seconds
 
 // -----------------------------------------------------------------------------
 // Logger
@@ -268,30 +268,39 @@ private:
   {
   private:
     static constexpr float NEEDED_TEMP_CHANGE = 0.25f;
-    static constexpr unsigned long TIME_TO_WAIT = 180000UL;
+    static constexpr unsigned long TIME_TO_WAIT = 300000UL;
   public:
     DesyncMan(): 
       start_time_(),
       start_temp_(),
+      max_temp_(),
       not_inited_(true)
       {}
 
     void Reset() { not_inited_ = true; }
     bool Update(float const temp_c)
     {
-      if(not_inited_) Begin(temp_c);
-      return (millis() - start_time_ >= TIME_TO_WAIT && temp_c - start_temp_ < NEEDED_TEMP_CHANGE);
-    }
-  private:
-    void Begin(float const temp_c)
-    {
-      start_time_ = millis();
-      start_temp_ = temp_c;
-      not_inited_ = false;
+      if(not_inited_)
+      {
+        start_time_ = millis();
+        max_temp_ = start_temp_ = temp_c;
+        not_inited_ = false;
+        return false;
+      }
+      if(temp_c > max_temp_)
+      {
+        max_temp_ = temp_c;
+      }
+      if(millis() - start_time_ < TIME_TO_WAIT)
+      {
+        return false;
+      }
+      return (max_temp_ - start_temp_) < NEEDED_TEMP_CHANGE;
     }
   private:
     unsigned long start_time_;
     float start_temp_;
+    float max_temp_;
     bool not_inited_;
   };
 public:
@@ -472,9 +481,9 @@ void LEDMan::UpdateState()
 
 
 
-//
+// uid, target temp, max temp, sensor pin, relay pin
 TempController nico(1u, 24.0f, 28.0f, 2u, 8u);
-TempController trap(2u, 25.0f, 28.0f, 4u, 12u);
+TempController trap(2u, 25.0f, 29.0f, 4u, 12u);
 
 //
 
@@ -496,7 +505,7 @@ void setup()
   Log::begin(9600);
 
   Log::println(F("\nNico temp controller starting..."));
-  Log::println(F("Target: 26 C, hysteresis: +/-0.5 C"));
+  Log::println(F("Target: 24 C, hysteresis: +/-0.5 C"));
 
 
   Panic::Callback const cbs[] = 
