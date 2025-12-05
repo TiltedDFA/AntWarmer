@@ -13,3 +13,7 @@ temperature run away).
 
 Please note that since the Arduino IDE uses C++11, there are parts of the code that had to be down quite awkwardly but it was a good oppertunity
 to experiment with an older standard.
+
+main.cpp hold the current 2 heater system while oldsystem.cpp features the old system which was just 1 heating loop.
+There are quite a few differences between them as oldsystem.cpp was my inital code which ran for a few weeks before I got more
+ants requiring a new heater and a system redesign.
