@@ -9,13 +9,14 @@ constexpr bool CONNECT_TO_PC{ true };
 
 constexpr float TEMP_ALLOWANCE { 0.25f };
 
+
 // Relay logic level.
 // DollaTek-style modules are usually "active LOW":
 constexpr uint8_t RELAY_ACTIVE_STATE{ HIGH };
 constexpr uint8_t RELAY_INACTIVE_STATE{ LOW };
 
 // How often to read temperature (ms)
-constexpr unsigned long READ_INTERVAL_MS{ 3000UL };  // 2 seconds
+constexpr unsigned long READ_INTERVAL_MS{ 3000UL };  // 3 seconds
 
 // -----------------------------------------------------------------------------
 // Logger
@@ -308,6 +309,7 @@ public:
   TempController()=delete;
   TempController(uint8_t const uid, float const target, float const max, uint8_t sen_wire_pin, uint8_t relay_pin):
     uid_(uid),
+    disconnect_streak_(0U),
     st_(TempController::COOLING),
     heater_is_off_(true),
     target_(target),
@@ -400,19 +402,22 @@ public:
 
     if(temp_c == DEVICE_DISCONNECTED_C)
     {
-      PANIC(uid_, PanicReason::SensorDisconnected);
-      Log::println(F("CTRL: "), uid_, F("Heater -> OFF (fail-safe)"));
-      return;
+      if(++disconnect_streak_ >= 2U)
+      {
+        PANIC(uid_, PanicReason::SensorDisconnected);
+        Log::println(F("CTRL: "), uid_, F("Heater -> OFF (fail-safe)"));
+      }
     }
     else
     {
+      disconnect_streak_ = 0U;
       // Log::print(F("CTRL: "), uid_, F(" Temp: "), temp_c, F(" C\n"));
       this->PrintState(temp_c);
       this->Update(temp_c);
     }
   }
 
-  private:
+private:
   inline void On()
   {
     if(heater_is_off_ == false) return;
@@ -422,6 +427,7 @@ public:
   }
 private:
   uint8_t const uid_;
+  uint8_t disconnect_streak_;
   State st_;
   bool heater_is_off_;
   float const target_;
@@ -502,7 +508,7 @@ void setup()
   nico.Begin();
   trap.Begin();
 
-  Log::begin(9600);
+  Log::begin(115200);
 
   Log::println(F("\nNico temp controller starting..."));
   Log::println(F("Target: 24 C, hysteresis: +/-0.5 C"));
